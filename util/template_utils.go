@@ -29,6 +29,20 @@ These entries have been changed between {{.Image1}} and {{.Image2}}:{{if not .Di
 FILE	SIZE1	SIZE2{{range .Diff.Mods}}{{"\n"}}{{.Name}}	{{.Size1}}	{{.Size2}}{{end}}
 {{end}}
 `
+const FSMetaDiffOutput = `
+-----{{.DiffType}}-----
+
+These entries have been added to {{.Image2}}:{{if not .Diff.Adds}} None{{else}}
+FILE	META{{range .Diff.Adds}}{{"\n"}}{{.Name}}	{{.Meta}}{{end}}{{end}}
+
+These entries have been deleted from {{.Image2}}:{{if not .Diff.Dels}} None{{else}}
+FILE	META{{range .Diff.Dels}}{{"\n"}}{{.Name}}	{{.Meta}}{{end}}{{end}}
+
+These entries have different metadata between {{.Image1}} and {{.Image2}}:{{if not .Diff.Mods}} None{{else}}
+FILE	META1	META2{{range .Diff.Mods}}{{"\n"}}{{.Name}}	{{.Meta1}}	{{.Meta2}}{{end}}
+{{end}}
+`
+
 const FSLayerDiffOutput = `
 -----{{.DiffType}}-----
 
@@ -43,6 +57,24 @@ FILE	SIZE{{range $diff.Dels}}{{"\n"}}{{.Name}}	{{.Size}}{{end}}{{end}}
 
 These entries have been changed between {{$.Image1}} and {{$.Image2}}:{{if not $diff.Mods}} None{{else}}
 FILE	SIZE1	SIZE2{{range $diff.Mods}}{{"\n"}}{{.Name}}	{{.Size1}}	{{.Size2}}{{end}}
+{{end}}
+{{end}}
+`
+
+const FSLayerMetaDiffOutput = `
+-----{{.DiffType}}-----
+
+{{range $index, $diff := .Diff}}
+
+Diff for Layer {{$index}}:
+These entries have been added to {{$.Image1}}:{{if not $diff.Adds}} None{{else}}
+FILE	META{{range $diff.Adds}}{{"\n"}}{{.Name}}	{{.Meta}}{{end}}{{end}}
+
+These entries have been deleted from {{$.Image1}}:{{if not $diff.Dels}} None{{else}}
+FILE	META{{range $diff.Dels}}{{"\n"}}{{.Name}}	{{.Meta}}{{end}}{{end}}
+
+These entries have different metadata between {{$.Image1}} and {{$.Image2}}:{{if not $diff.Mods}} None{{else}}
+FILE	META1	META2{{range $diff.Mods}}{{"\n"}}{{.Name}}	{{.Meta1}}	{{.Meta2}}{{end}}
 {{end}}
 {{end}}
 `

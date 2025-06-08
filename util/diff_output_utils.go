@@ -298,6 +298,55 @@ func (r DirDiffResult) OutputText(writer io.Writer, diffType string, format stri
 	return TemplateOutputFromFormat(writer, strResult, "DirDiff", format)
 }
 
+type MetaDirDiffResult DiffResult
+
+func (r MetaDirDiffResult) OutputStruct() interface{} {
+	diff, valid := r.Diff.(MetaDirDiff)
+	if !valid {
+		logrus.Error("Unexpected structure of Diff.  Should follow the MetaDirDiff struct")
+		return errors.New("Could not output FileMetaAnalyzer diff result")
+	}
+
+	r.Diff = sortMetaDirDiff(diff)
+	return r
+}
+
+func (r MetaDirDiffResult) OutputText(writer io.Writer, diffType string, format string) error {
+	diff, valid := r.Diff.(MetaDirDiff)
+	if !valid {
+		logrus.Error("Unexpected structure of Diff.  Should follow the MetaDirDiff struct")
+		return errors.New("Could not output FileMetaAnalyzer diff result")
+	}
+	diff = sortMetaDirDiff(diff)
+
+	strAdds := stringifyDirectoryMetaEntries(diff.Adds)
+	strDels := stringifyDirectoryMetaEntries(diff.Dels)
+	strMods := stringifyMetaEntryDiffs(diff.Mods)
+
+	type StrDiff struct {
+		Adds []StrDirectoryMetaEntry
+		Dels []StrDirectoryMetaEntry
+		Mods []StrMetaEntryDiff
+	}
+
+	strResult := struct {
+		Image1   string
+		Image2   string
+		DiffType string
+		Diff     StrDiff
+	}{
+		Image1:   r.Image1,
+		Image2:   r.Image2,
+		DiffType: r.DiffType,
+		Diff: StrDiff{
+			Adds: strAdds,
+			Dels: strDels,
+			Mods: strMods,
+		},
+	}
+	return TemplateOutputFromFormat(writer, strResult, "MetaDirDiff", format)
+}
+
 type SizeDiffResult DiffResult
 
 func (r SizeDiffResult) OutputStruct() interface{} {
@@ -430,4 +479,66 @@ func (r MultipleDirDiffResult) OutputText(writer io.Writer, diffType string, for
 		Diff:     strDiffs,
 	}
 	return TemplateOutputFromFormat(writer, strResult, "MultipleDirDiff", format)
+}
+
+type MultipleMetaDirDiffResult DiffResult
+
+func (r MultipleMetaDirDiffResult) OutputStruct() interface{} {
+	diff, valid := r.Diff.(MultipleMetaDirDiff)
+	if !valid {
+		logrus.Error("Unexpected structure of Diff.  Should follow the MultipleMetaDirDiff struct")
+		return errors.New("Could not output FileMetaLayerAnalyzer diff result")
+	}
+	for i, d := range diff.DirDiffs {
+		diff.DirDiffs[i] = sortMetaDirDiff(d)
+	}
+	r.Diff = diff
+	return r
+}
+
+func (r MultipleMetaDirDiffResult) OutputText(writer io.Writer, diffType string, format string) error {
+	diff, valid := r.Diff.(MultipleMetaDirDiff)
+	if !valid {
+		logrus.Error("Unexpected structure of Diff.  Should follow the MultipleMetaDirDiff struct")
+		return errors.New("Could not output FileMetaLayerAnalyzer diff result")
+	}
+	for i, d := range diff.DirDiffs {
+		diff.DirDiffs[i] = sortMetaDirDiff(d)
+	}
+
+	type StrDiff struct {
+		Adds []StrDirectoryMetaEntry
+		Dels []StrDirectoryMetaEntry
+		Mods []StrMetaEntryDiff
+	}
+
+	var strDiffs []StrDiff
+	for _, d := range diff.DirDiffs {
+		strAdds := stringifyDirectoryMetaEntries(d.Adds)
+		strDels := stringifyDirectoryMetaEntries(d.Dels)
+		strMods := stringifyMetaEntryDiffs(d.Mods)
+
+		strDiffs = append(strDiffs, StrDiff{
+			Adds: strAdds,
+			Dels: strDels,
+			Mods: strMods,
+		})
+
+	}
+
+	type ImageDiff struct {
+		StrDiffs []StrDiff
+	}
+	strResult := struct {
+		Image1   string
+		Image2   string
+		DiffType string
+		Diff     []StrDiff
+	}{
+		Image1:   r.Image1,
+		Image2:   r.Image2,
+		DiffType: r.DiffType,
+		Diff:     strDiffs,
+	}
+	return TemplateOutputFromFormat(writer, strResult, "MultipleMetaDirDiff", format)
 }

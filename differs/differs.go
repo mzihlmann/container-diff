@@ -28,6 +28,8 @@ const historyAnalyzer = "history"
 const metadataAnalyzer = "metadata"
 const fileAnalyzer = "file"
 const layerAnalyzer = "layer"
+const fileMetaAnalyzer = "filemetadata"
+const MetaLayerAnalyzer = "filemetadatalayer"
 const sizeAnalyzer = "size"
 const sizeLayerAnalyzer = "sizelayer"
 const aptAnalyzer = "apt"
@@ -60,6 +62,8 @@ var Analyzers = map[string]Analyzer{
 	metadataAnalyzer:  MetadataAnalyzer{},
 	fileAnalyzer:      FileAnalyzer{},
 	layerAnalyzer:     FileLayerAnalyzer{},
+	fileMetaAnalyzer:  FileMetaAnalyzer{},
+	MetaLayerAnalyzer: FileMetaLayerAnalyzer{},
 	sizeAnalyzer:      SizeAnalyzer{},
 	sizeLayerAnalyzer: SizeLayerAnalyzer{},
 	aptAnalyzer:       AptAnalyzer{},
@@ -71,7 +75,7 @@ var Analyzers = map[string]Analyzer{
 	emergeAnalyzer:    EmergeAnalyzer{},
 }
 
-var LayerAnalyzers = [...]string{layerAnalyzer, sizeLayerAnalyzer, aptLayerAnalyzer, rpmLayerAnalyzer}
+var LayerAnalyzers = [...]string{layerAnalyzer, MetaLayerAnalyzer, sizeLayerAnalyzer, aptLayerAnalyzer, rpmLayerAnalyzer}
 
 func (req DiffRequest) GetDiff() (map[string]util.Result, error) {
 	img1 := req.Image1

@@ -18,9 +18,11 @@ package util
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
+	"syscall"
 
 	pkgutil "github.com/GoogleContainerTools/container-diff/pkg/util"
 	"github.com/sirupsen/logrus"
@@ -34,8 +36,18 @@ type DirDiff struct {
 	Mods []EntryDiff
 }
 
+type MetaDirDiff struct {
+	Adds []pkgutil.DirectoryMetaEntry
+	Dels []pkgutil.DirectoryMetaEntry
+	Mods []MetaEntryDiff
+}
+
 type MultipleDirDiff struct {
 	DirDiffs []DirDiff
+}
+
+type MultipleMetaDirDiff struct {
+	DirDiffs []MetaDirDiff
 }
 
 type FileNameDiff struct {
@@ -48,6 +60,16 @@ type EntryDiff struct {
 	Name  string
 	Size1 int64
 	Size2 int64
+}
+
+type MetaEntryDiff struct {
+	Name  string
+	Mode1 fs.FileMode
+	UID1  uint32
+	GID1  uint32
+	Mode2 fs.FileMode
+	UID2  uint32
+	GID2  uint32
 }
 
 // Modification of difflib's unified differ
@@ -122,6 +144,39 @@ func DiffDirectory(d1, d2 pkgutil.Directory) (DirDiff, bool) {
 	return DirDiff{addedEntries, deletedEntries, modifiedEntries}, same
 }
 
+// DiffDirectoryMetadata takes the diff of metadata between two directories, assuming both are completely unpacked
+func DiffDirectoryMetadata(d1, d2 pkgutil.Directory) (MetaDirDiff, bool, error) {
+	adds := GetAddedEntries(d1, d2)
+	sort.Strings(adds)
+	addedEntries, err := pkgutil.CreateDirectoryMetaEntries(d2.Root, adds)
+	if err != nil {
+		return MetaDirDiff{}, false, err
+	}
+
+	dels := GetDeletedEntries(d1, d2)
+	sort.Strings(dels)
+	deletedEntries, err := pkgutil.CreateDirectoryMetaEntries(d1.Root, dels)
+	if err != nil {
+		return MetaDirDiff{}, false, err
+	}
+
+	mods := GetModifiedMetaEntries(d1, d2)
+	sort.Strings(mods)
+	modifiedEntries, err := createMetaEntryDiffs(d1.Root, d2.Root, mods)
+	if err != nil {
+		return MetaDirDiff{}, false, err
+	}
+
+	var same bool
+	if len(adds) == 0 && len(dels) == 0 && len(mods) == 0 {
+		same = true
+	} else {
+		same = false
+	}
+
+	return MetaDirDiff{addedEntries, deletedEntries, modifiedEntries}, same, nil
+}
+
 func DiffFile(image1, image2 *pkgutil.Image, filename string) (*FileNameDiff, error) {
 	//Join paths
 	image1FilePath := filepath.Join(image1.FSPath, filename)
@@ -178,6 +233,46 @@ func DiffFile(image1, image2 *pkgutil.Image, filename string) (*FileNameDiff, er
 		return nil, err
 	}
 	return &FileNameDiff{filename, description, text}, nil
+}
+
+// Checks for metadata differences between files of the same name from different directories
+func GetModifiedMetaEntries(d1, d2 pkgutil.Directory) []string {
+	d1files := d1.Content
+	d2files := d2.Content
+
+	filematches := GetMatches(d1files, d2files)
+
+	modified := []string{}
+	for _, f := range filematches {
+		f1path := fmt.Sprintf("%s%s", d1.Root, f)
+		f2path := fmt.Sprintf("%s%s", d2.Root, f)
+
+		f1stat, err := os.Lstat(f1path)
+		if err != nil {
+			logrus.Errorf("Error checking directory entry %s: %s\n", f, err)
+			continue
+		}
+		f2stat, err := os.Lstat(f2path)
+		if err != nil {
+			logrus.Errorf("Error checking directory entry %s: %s\n", f, err)
+			continue
+		}
+
+		// Compare Mode
+		if f1stat.Mode() != f2stat.Mode() {
+			modified = append(modified, f)
+			continue
+		}
+
+		// Compare UID/GID
+		s1 := f1stat.Sys().(*syscall.Stat_t)
+		s2 := f2stat.Sys().(*syscall.Stat_t)
+		if s1.Uid != s2.Uid || s1.Gid != s2.Gid {
+			modified = append(modified, f)
+			continue
+		}
+	}
+	return modified
 }
 
 // Checks for content differences between files of the same name from different directories
@@ -264,4 +359,34 @@ func createEntryDiffs(root1, root2 string, entryNames []string) (entries []Entry
 		entries = append(entries, entry)
 	}
 	return entries
+}
+
+func createMetaEntryDiffs(root1, root2 string, entryNames []string) (entries []MetaEntryDiff, err error) {
+	for _, name := range entryNames {
+		entryPath1 := filepath.Join(root1, name)
+		f1stat, err := os.Lstat(entryPath1)
+		if err != nil {
+			return nil, err
+		}
+		s1 := f1stat.Sys().(*syscall.Stat_t)
+
+		entryPath2 := filepath.Join(root2, name)
+		f2stat, err := os.Lstat(entryPath2)
+		if err != nil {
+			return nil, err
+		}
+		s2 := f2stat.Sys().(*syscall.Stat_t)
+
+		entry := MetaEntryDiff{
+			Name:  name,
+			Mode1: f1stat.Mode(),
+			Mode2: f2stat.Mode(),
+			UID1:  s1.Uid,
+			UID2:  s2.Uid,
+			GID1:  s1.Gid,
+			GID2:  s2.Gid,
+		}
+		entries = append(entries, entry)
+	}
+	return entries, nil
 }

@@ -226,6 +226,37 @@ var directorySizeSort = func(e1, e2 *pkgutil.DirectoryEntry) bool {
 	return e1.Size > e2.Size
 }
 
+type MetaDirectoryBy func(e1, e2 *pkgutil.DirectoryMetaEntry) bool
+
+func (by MetaDirectoryBy) Sort(entries []pkgutil.DirectoryMetaEntry) {
+	ds := &MetaDirectorySorter{
+		entries: entries,
+		by:      by,
+	}
+	sort.Sort(ds)
+}
+
+type MetaDirectorySorter struct {
+	entries []pkgutil.DirectoryMetaEntry
+	by      func(p1, p2 *pkgutil.DirectoryMetaEntry) bool
+}
+
+func (s *MetaDirectorySorter) Len() int {
+	return len(s.entries)
+}
+
+func (s *MetaDirectorySorter) Less(i, j int) bool {
+	return s.by(&s.entries[i], &s.entries[j])
+}
+
+func (s *MetaDirectorySorter) Swap(i, j int) {
+	s.entries[i], s.entries[j] = s.entries[j], s.entries[i]
+}
+
+var MetaDirectoryNameSort = func(e1, e2 *pkgutil.DirectoryMetaEntry) bool {
+	return e1.Name < e2.Name
+}
+
 func sortDirDiff(diff DirDiff) DirDiff {
 	adds, dels, mods := diff.Adds, diff.Dels, diff.Mods
 	if SortSize {
@@ -238,6 +269,20 @@ func sortDirDiff(diff DirDiff) DirDiff {
 		entryDiffBy(entryDiffSizeSort).Sort(mods)
 	}
 	return DirDiff{adds, dels, mods}
+}
+
+func sortMetaDirDiff(diff MetaDirDiff) MetaDirDiff {
+	adds, dels, mods := diff.Adds, diff.Dels, diff.Mods
+	if SortSize {
+		MetaDirectoryBy(MetaDirectoryNameSort).Sort(adds)
+		MetaDirectoryBy(MetaDirectoryNameSort).Sort(dels)
+		MetaEntryDiffBy(MetaEntryDiffNameSort).Sort(mods)
+	} else {
+		MetaDirectoryBy(MetaDirectoryNameSort).Sort(adds)
+		MetaDirectoryBy(MetaDirectoryNameSort).Sort(dels)
+		MetaEntryDiffBy(MetaEntryDiffNameSort).Sort(mods)
+	}
+	return MetaDirDiff{adds, dels, mods}
 }
 
 type entryDiffBy func(a, b *EntryDiff) bool
@@ -274,4 +319,35 @@ var entryDiffNameSort = func(a, b *EntryDiff) bool {
 // Sorts by size of the files in the first image, in descending order
 var entryDiffSizeSort = func(a, b *EntryDiff) bool {
 	return a.Size1 > b.Size1
+}
+
+type MetaEntryDiffBy func(a, b *MetaEntryDiff) bool
+
+func (by MetaEntryDiffBy) Sort(entryDiffs []MetaEntryDiff) {
+	ds := &MetaEntryDiffSorter{
+		entryDiffs: entryDiffs,
+		by:         by,
+	}
+	sort.Sort(ds)
+}
+
+type MetaEntryDiffSorter struct {
+	entryDiffs []MetaEntryDiff
+	by         func(a, b *MetaEntryDiff) bool
+}
+
+func (s *MetaEntryDiffSorter) Len() int {
+	return len(s.entryDiffs)
+}
+
+func (s *MetaEntryDiffSorter) Less(i, j int) bool {
+	return s.by(&s.entryDiffs[i], &s.entryDiffs[j])
+}
+
+func (s *MetaEntryDiffSorter) Swap(i, j int) {
+	s.entryDiffs[i], s.entryDiffs[j] = s.entryDiffs[j], s.entryDiffs[i]
+}
+
+var MetaEntryDiffNameSort = func(a, b *MetaEntryDiff) bool {
+	return a.Name < b.Name
 }

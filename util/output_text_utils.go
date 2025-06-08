@@ -17,6 +17,9 @@ limitations under the License.
 package util
 
 import (
+	"fmt"
+	"io/fs"
+
 	"code.cloudfoundry.org/bytefmt"
 	pkgutil "github.com/GoogleContainerTools/container-diff/pkg/util"
 )
@@ -34,6 +37,10 @@ func stringifySize(size int64) string {
 		strSize = bytefmt.ByteSize(uint64(size))
 	}
 	return strSize
+}
+
+func stringifyMeta(mode fs.FileMode, uid uint32, gid uint32) string {
+	return fmt.Sprintf("mode=%#o uid=%d gid=%d", mode, uid, gid)
 }
 
 func stringifyPackages(packages []PackageOutput) []StrPackageOutput {
@@ -108,6 +115,19 @@ func stringifyDirectoryEntries(entries []pkgutil.DirectoryEntry) (strEntries []S
 	return
 }
 
+type StrDirectoryMetaEntry struct {
+	Name string
+	Meta string
+}
+
+func stringifyDirectoryMetaEntries(entries []pkgutil.DirectoryMetaEntry) (strEntries []StrDirectoryMetaEntry) {
+	for _, entry := range entries {
+		strEntry := StrDirectoryMetaEntry{Name: entry.Name, Meta: stringifyMeta(entry.Mode, entry.UID, entry.GID)}
+		strEntries = append(strEntries, strEntry)
+	}
+	return
+}
+
 type StrEntryDiff struct {
 	Name  string
 	Size1 string
@@ -117,6 +137,20 @@ type StrEntryDiff struct {
 func stringifyEntryDiffs(entries []EntryDiff) (strEntries []StrEntryDiff) {
 	for _, entry := range entries {
 		strEntry := StrEntryDiff{Name: entry.Name, Size1: stringifySize(entry.Size1), Size2: stringifySize(entry.Size2)}
+		strEntries = append(strEntries, strEntry)
+	}
+	return
+}
+
+type StrMetaEntryDiff struct {
+	Name  string
+	Meta1 string
+	Meta2 string
+}
+
+func stringifyMetaEntryDiffs(entries []MetaEntryDiff) (strEntries []StrMetaEntryDiff) {
+	for _, entry := range entries {
+		strEntry := StrMetaEntryDiff{Name: entry.Name, Meta1: stringifyMeta(entry.Mode1, entry.UID1, entry.GID1), Meta2: stringifyMeta(entry.Mode1, entry.UID1, entry.GID1)}
 		strEntries = append(strEntries, strEntry)
 	}
 	return

@@ -290,6 +290,42 @@ func (r FileAnalyzeResult) OutputText(writer io.Writer, analyzeType string, form
 	return TemplateOutputFromFormat(writer, strResult, "FileAnalyze", format)
 }
 
+type FileMetaAnalyzeResult AnalyzeResult
+
+func (r FileMetaAnalyzeResult) OutputStruct() interface{} {
+	analysis, valid := r.Analysis.([]util.DirectoryMetaEntry)
+	if !valid {
+		logrus.Error("Unexpected structure of Analysis.  Should be of type []DirectoryMetaEntry")
+		return errors.New("Could not output FileMetaAnalyzer analysis result")
+	}
+
+	MetaDirectoryBy(MetaDirectoryNameSort).Sort(analysis)
+	r.Analysis = analysis
+	return r
+}
+
+func (r FileMetaAnalyzeResult) OutputText(writer io.Writer, analyzeType string, format string) error {
+	analysis, valid := r.Analysis.([]util.DirectoryMetaEntry)
+	if !valid {
+		logrus.Error("Unexpected structure of Analysis.  Should be of type []DirectoryMetaEntry")
+		return errors.New("Could not output FileMetaAnalyzer analysis result")
+	}
+
+	MetaDirectoryBy(MetaDirectoryNameSort).Sort(analysis)
+	strAnalysis := stringifyDirectoryMetaEntries(analysis)
+
+	strResult := struct {
+		Image       string
+		AnalyzeType string
+		Analysis    []StrDirectoryMetaEntry
+	}{
+		Image:       r.Image,
+		AnalyzeType: r.AnalyzeType,
+		Analysis:    strAnalysis,
+	}
+	return TemplateOutputFromFormat(writer, strResult, "FileMetaAnalyze", format)
+}
+
 type FileLayerAnalyzeResult AnalyzeResult
 
 func (r FileLayerAnalyzeResult) OutputStruct() interface{} {
@@ -340,6 +376,50 @@ func (r FileLayerAnalyzeResult) OutputText(writer io.Writer, analyzeType string,
 		Analysis:    strDirectoryEntries,
 	}
 	return TemplateOutputFromFormat(writer, strResult, "FileLayerAnalyze", format)
+}
+
+type FileMetaLayerAnalyzeResult AnalyzeResult
+
+func (r FileMetaLayerAnalyzeResult) OutputStruct() interface{} {
+	analysis, valid := r.Analysis.([][]util.DirectoryMetaEntry)
+	if !valid {
+		logrus.Error("Unexpected structure of Analysis.  Should be of type []DirectoryMetaEntry")
+		return errors.New("Could not output FileMetaAnalyzer analysis result")
+	}
+
+	for _, a := range analysis {
+		MetaDirectoryBy(MetaDirectoryNameSort).Sort(a)
+	}
+
+	r.Analysis = analysis
+	return r
+}
+
+func (r FileMetaLayerAnalyzeResult) OutputText(writer io.Writer, analyzeType string, format string) error {
+	analysis, valid := r.Analysis.([][]util.DirectoryMetaEntry)
+	if !valid {
+		logrus.Error("Unexpected structure of Analysis.  Should be of type []DirectoryMetaEntry")
+		return errors.New("Could not output FileMetaAnalyzer analysis result")
+	}
+
+	var strDirectoryEntries [][]StrDirectoryMetaEntry
+
+	for _, a := range analysis {
+		MetaDirectoryBy(MetaDirectoryNameSort).Sort(a)
+		strAnalysis := stringifyDirectoryMetaEntries(a)
+		strDirectoryEntries = append(strDirectoryEntries, strAnalysis)
+	}
+
+	strResult := struct {
+		Image       string
+		AnalyzeType string
+		Analysis    [][]StrDirectoryMetaEntry
+	}{
+		Image:       r.Image,
+		AnalyzeType: r.AnalyzeType,
+		Analysis:    strDirectoryEntries,
+	}
+	return TemplateOutputFromFormat(writer, strResult, "FileMetaLayerAnalyze", format)
 }
 
 type SizeAnalyzeResult AnalyzeResult

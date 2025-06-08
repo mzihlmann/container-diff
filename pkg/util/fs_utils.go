@@ -19,10 +19,12 @@ package util
 import (
 	"bytes"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/sirupsen/logrus"
 )
@@ -36,6 +38,13 @@ type Directory struct {
 type DirectoryEntry struct {
 	Name string
 	Size int64
+}
+
+type DirectoryMetaEntry struct {
+	Name string
+	Mode fs.FileMode
+	UID  uint32
+	GID  uint32
 }
 
 func GetSize(path string) int64 {
@@ -129,6 +138,31 @@ func CreateDirectoryEntries(root string, entryNames []string) (entries []Directo
 		entries = append(entries, entry)
 	}
 	return entries
+}
+
+func GetDirectoryMetaEntries(d Directory) ([]DirectoryMetaEntry, error) {
+	return CreateDirectoryMetaEntries(d.Root, d.Content)
+}
+
+func CreateDirectoryMetaEntries(root string, entryNames []string) (entries []DirectoryMetaEntry, err error) {
+	for _, name := range entryNames {
+		entryPath := filepath.Join(root, name)
+		fstat, err := os.Lstat(entryPath)
+		if err != nil {
+			return nil, err
+		}
+		s := fstat.Sys().(*syscall.Stat_t)
+
+		entry := DirectoryMetaEntry{
+			Name: name,
+			Mode: fstat.Mode(),
+			UID:  s.Uid,
+			GID:  s.Gid,
+		}
+
+		entries = append(entries, entry)
+	}
+	return entries, nil
 }
 
 func CheckSameSymlink(f1name, f2name string) (bool, error) {
